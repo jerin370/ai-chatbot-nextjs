@@ -2,22 +2,23 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bot, Send, User } from 'lucide-react';
+import { Bot, Send, User, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 
 interface Message {
-  id: number;
-  text: string;
-  sender: 'user' | 'bot';
+  id: string;
+  content: string;
+  role: 'user' | 'assistant' | 'error';
 }
 
 export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [threadId, setThreadId] = useState<string | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const { toast } = useToast();
@@ -39,33 +40,53 @@ export default function Chat() {
     e.preventDefault();
     if (!input.trim()) return;
 
-    const userMessage: Message = {
-      id: Date.now(),
-      text: input,
-      sender: 'user',
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-    setInput('');
     setLoading(true);
+    const userInput = input;
+    setInput('');
+
+    // Add user message immediately
+    const userMessage = {
+      id: Date.now().toString(),
+      content: userInput,
+      role: 'user' as const,
+    };
+    setMessages((prev) => [...prev, userMessage]);
 
     try {
-      // Simulate AI response using dummyjson comments
-      const res = await fetch('https://dummyjson.com/comments/1');
-      const data = await res.json();
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: userInput,
+          threadId,
+        }),
+      });
 
-      const botMessage: Message = {
-        id: Date.now() + 1,
-        text: data.body,
-        sender: 'bot',
-      };
+      const data = await response.json();
 
-      setMessages((prev) => [...prev, botMessage]);
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send message');
+      }
+
+      setThreadId(data.threadId);
+      setMessages(data.messages);
     } catch (error) {
+      // Add error message to chat
+      const errorMessage = {
+        id: `error-${Date.now()}`,
+        content: error instanceof Error 
+          ? error.message 
+          : 'Failed to connect to AI assistant. Please try again.',
+        role: 'error' as const,
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to get response. Please try again.',
+        description: 'Failed to send message. Please try again.',
       });
     } finally {
       setLoading(false);
@@ -98,24 +119,31 @@ export default function Chat() {
               <div
                 key={message.id}
                 className={`flex items-start gap-3 ${
-                  message.sender === 'user' ? 'justify-end' : 'justify-start'
+                  message.role === 'user' ? 'justify-end' : 'justify-start'
                 }`}
               >
-                {message.sender === 'bot' && (
+                {message.role === 'assistant' && (
                   <div className="p-2 rounded-full bg-primary/10">
                     <Bot className="w-4 h-4 text-primary" />
                   </div>
                 )}
+                {message.role === 'error' && (
+                  <div className="p-2 rounded-full bg-destructive/10">
+                    <AlertTriangle className="w-4 h-4 text-destructive" />
+                  </div>
+                )}
                 <div
                   className={`rounded-lg p-4 max-w-[80%] ${
-                    message.sender === 'user'
+                    message.role === 'user'
                       ? 'bg-primary text-primary-foreground'
+                      : message.role === 'error'
+                      ? 'bg-destructive/10 text-destructive'
                       : 'bg-muted'
                   }`}
                 >
-                  {message.text}
+                  {message.content}
                 </div>
-                {message.sender === 'user' && (
+                {message.role === 'user' && (
                   <div className="p-2 rounded-full bg-primary/10">
                     <User className="w-4 h-4 text-primary" />
                   </div>
