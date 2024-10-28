@@ -30,7 +30,7 @@ export async function POST(req: Request) {
       threadId,
       messages: messages.map((msg) => ({
         id: msg.id,
-        content: msg.content[0].text.value,
+        content: msg.content[0],
         role: msg.role,
       })),
     });

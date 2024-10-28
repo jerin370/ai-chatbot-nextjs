@@ -16,8 +16,8 @@ export default function Home() {
             Your Personal AI Assistant
           </h1>
           <p className="text-xl text-muted-foreground">
-            Experience the power of AI with our intelligent chatbot. Get instant responses, 
-            insights, and assistance whenever you need it.
+            Experience the power of AI with our intelligent chatbot. Get instant
+            responses, insights, and assistance whenever you need it.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button asChild size="lg" className="text-lg">
